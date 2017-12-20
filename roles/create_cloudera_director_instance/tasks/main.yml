@@ -1,0 +1,54 @@
+---
+    - name: create ec2 key
+      ec2_key:
+         name: my_key
+         state: present
+         region: "{{ region }}"
+      register: cloudera_director_key
+
+    - name: save private key
+      copy: content="{{ cloudera_director_key.key.private_key }}" dest="keys/my_key.pem" mode=0600
+      when: cloudera_director_key.changed
+
+    - name: Create group
+      ec2_group: 
+         name: "{{ group_name }}"
+         description: test group
+         region: "{{ region }}"
+         state: present
+         rules:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 7189
+            to_port: 7189
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 7180
+            to_port: 7180
+            cidr_ip: 0.0.0.0/0
+         rules_egress: 
+          - proto: all
+            cidr_ip: 0.0.0.0/0  
+        
+    - name: create ec2 instances
+      ec2:
+         aws_access_key: "{{ aws_access_key }}"
+         aws_secret_key: "{{ aws_secret_key }}"
+         key_name: my_key
+         group: "{{ group_name }}"
+         region: "{{ region }}"
+         instance_type: "{{ instance_type }}"
+         image: "{{ image_id }}"
+         wait: true
+         wait_timeout: 500
+         count: "{{ number_of_instances }}"
+         instance_tags:
+             Name: "{{ instance_tag }}"
+      register: ec2
